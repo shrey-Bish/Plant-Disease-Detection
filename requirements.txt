@@ -10,6 +10,7 @@ tornado>=6.0.3
 flask>=2.0.0
 opencv-python-headless>=4.9.0.80
 pillow>=8.0.0
+mahotas>=1.4.13
 
 
 # Remove these unless you explicitly need them or are on Windows with specific reasons:

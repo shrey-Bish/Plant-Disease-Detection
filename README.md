@@ -8,7 +8,6 @@
 
 👉 [Click here to try it live on Render](https://plant-disease-detection.onrender.com)
 
-> *(Replace this link with your actual deployment URL)*
 
 ---
 
