@@ -26,28 +26,42 @@ le = joblib.load(label_encoder_path)
 
 # Feature Extraction Function
 def extract_features(image):
-    image = cv2.resize(image, (128, 128))
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    try:
+        image = cv2.resize(image, (500, 500))  # same as training
 
-    # Color Histogram
-    chans = cv2.split(image)
-    colors = ('b', 'g', 'r')
-    features = []
-    for chan, color in zip(chans, colors):
-        hist = cv2.calcHist([chan], [0], None, [256], [0, 256])
+        # Convert BGR → RGB
+        rgb_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # RGB → HSV
+        hsv_img = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2HSV)
+
+        # Segmentation (same masks as training)
+        lower_green = np.array([25, 0, 20])
+        upper_green = np.array([100, 255, 255])
+        healthy_mask = cv2.inRange(hsv_img, lower_green, upper_green)
+
+        lower_brown = np.array([10, 0, 10])
+        upper_brown = np.array([30, 255, 255])
+        disease_mask = cv2.inRange(hsv_img, lower_brown, upper_brown)
+
+        final_mask = healthy_mask + disease_mask
+        segmented_img = cv2.bitwise_and(rgb_img, rgb_img, mask=final_mask)
+
+        # Hu Moments
+        gray = cv2.cvtColor(segmented_img, cv2.COLOR_RGB2GRAY)
+        hu_moments = cv2.HuMoments(cv2.moments(gray)).flatten()
+
+        # HSV Histogram (bins=8)
+        hsv = cv2.cvtColor(segmented_img, cv2.COLOR_RGB2HSV)
+        hist = cv2.calcHist([hsv], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
         hist = cv2.normalize(hist, hist).flatten()
-        features.extend(hist)
 
-    # Hu Moments
-    hu_moments = cv2.HuMoments(cv2.moments(gray)).flatten()
-    features.extend(hu_moments)
+        features = np.hstack([hist, hu_moments])
+        return features.tolist()
+    except Exception as e:
+        print(f"[ERROR] Feature extraction failed: {e}")
+        return None
 
-    # Haralick Features (Texture)
-    textures = mahotas.features.haralick(gray)
-    ht_mean = textures.mean(axis=0)
-    features.extend(ht_mean)
-
-    return features
 
 # Home page route
 @app.route('/')
@@ -69,27 +83,42 @@ def predict():
         file.save(filepath)
 
         image = cv2.imread(filepath)
+
+        if image is None:
+            return render_template('result.html', prediction="Invalid image uploaded", image_url=None)
+
         features = extract_features(image)
+        if features is None:
+            return render_template('result.html', prediction="Feature extraction failed", image_url=None)
 
-        # Pad or truncate to match expected input length
-        if len(features) > 519:
-            features = features[:519]
-        elif len(features) < 519:
-            features += [0] * (519 - len(features))
+        # Pad/truncate feature vector
+        expected_len = clf.n_features_in_
+        if len(features) > expected_len:
+            features = features[:expected_len]
+        elif len(features) < expected_len:
+            features += [0] * (expected_len - len(features))
 
+        # Scale features
         features_scaled = scaler.transform([features])
-        prediction = clf.predict(features_scaled)
-        disease_name = le.inverse_transform(prediction)[0]
+
+        # Get prediction probabilities and class
+        prediction_probs = clf.predict_proba(features_scaled)[0]
+        prediction = clf.predict(features_scaled)[0]
+        predicted_label = le.inverse_transform([prediction])[0]
+
+        # Print debug info
+        print("Prediction Probabilities:", prediction_probs)
+        print("Class Mapping:", le.classes_)
+        print("Predicted Class:", predicted_label)
 
         image_url = f"/uploads/{file.filename}"
-
-        return render_template('result.html', prediction=disease_name, image_url=image_url)
+        return render_template('result.html', prediction=predicted_label, image_url=image_url)
 
 # Serve uploaded images
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-
 if __name__ == '__main__':
+    #app.run(host='0.0.0.0', port=5001)
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
