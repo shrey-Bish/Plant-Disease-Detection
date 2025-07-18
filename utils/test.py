@@ -1,19 +1,20 @@
-import os
+import mahotas
+import cv2
+import numpy as np
 
-folders = os.listdir()
+def extract_features(image):
+    # Color histogram
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    hist = cv2.calcHist([hsv], [0, 1, 2], None, [8, 8, 8],
+                        [0, 180, 0, 256, 0, 256])
+    hist = cv2.normalize(hist, hist).flatten()
 
-for i in folders:
-    if i == 'test.py':
-        pass
-    elif i == '1' or i == '0':
-        pass
-    else:
-        folder_path = os.path.join(os.getcwd(), i)
-        file_names = os.listdir(folder_path)
-        name = 1
-        for file in file_names:
-            # path = os.path.join(folder_path,file)
-            os.rename(os.path.join(folder_path,file),os.path.join(folder_path, str(name) + '.jpg'))
-            print(type(name))
-            name = name + 1
-    
+    # Hu moments
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    moments = cv2.moments(gray)
+    hu_moments = cv2.HuMoments(moments).flatten()
+
+    # Haralick
+    haralick = mahotas.features.haralick(gray).mean(axis=0)
+
+    return np.hstack([hist, hu_moments, haralick])
