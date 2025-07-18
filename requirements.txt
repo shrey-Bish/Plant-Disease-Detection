@@ -16,12 +16,3 @@ pillow>=11.3.0
 joblib>=1.3.2
 h5py>=3.11.0
 
-
-# Remove these unless you explicitly need them or are on Windows with specific reasons:
-# mkl-fft
-# mkl-random
-# mkl-service
-# PyQt5
-# PyQt5-sip
-# PyQtWebEngine
-# wincertstore
