@@ -6,7 +6,7 @@
 
 ## 🌐 Live Demo
 
-👉 [Click here to try it live on Render](https://plant-disease-detection.onrender.com)
+👉 [Click here to try it live on Render](https://plant-disease-detection-ls8e.onrender.com)
 
 
 ---
